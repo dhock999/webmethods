@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?><xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<xsd:element name="record" type="record"/>
+<xsd:complexType name="record">
+<xsd:sequence>
+<xsd:element name="firstName" type="xs:string"/>
+<xsd:element name="lastName" type="xs:string"/>
+<xsd:element name="zipCode" type="xs:string"/>
+</xsd:sequence>
+</xsd:complexType>
+</xsd:schema>

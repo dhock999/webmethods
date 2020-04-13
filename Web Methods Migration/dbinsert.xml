@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?><Component name="Order Insert" folder="import" description="Random Important Words" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+<databaseProfile>
+<dbwrite>
+<dynamicinsert name="Statement" tableName="OrderHeader">
+<fields name="Fields">
+<field name="BILL_TO_ADDR1" dataType="character" mandatory="false" enforceUnique="false"/>
+<field name="overrideCredentials" datatype=""/>
+<field name="orderID" datatype="character"/>
+<field name="quantity" datatype="character"/>
+<field name="unitPrice" datatype="character"/>
+<field name="orderTotal" datatype="character"/>
+<field name="firstName" datatype="character"/>
+<field name="lastName" datatype="character"/>
+<field name="billingAddress" datatype="character"/>
+<field name="billingCity" datatype="character"/>
+<field name="billingState" datatype="character"/>
+<field name="billingZip" datatype="character"/>
+<field name="shippingAddress" datatype="character"/>
+<field name="shippingCity" datatype="character"/>
+<field name="shippingState" datatype="character"/>
+<field name="shippingZip" datatype="character"/>
+</fields>
+</dynamicinsert>
+</dbwrite>
+</databaseProfile>
+</Component>
