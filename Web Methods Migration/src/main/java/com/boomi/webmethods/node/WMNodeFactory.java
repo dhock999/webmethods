@@ -1,7 +1,9 @@
 package com.boomi.webmethods.node;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.util.zip.ZipInputStream;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -16,14 +18,16 @@ import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
+import com.boomi.webmethods.util.Util;
+
 public class WMNodeFactory {
-	public static WMNode getNode(String filePath) throws ParserConfigurationException, SAXException, IOException, XPathExpressionException  {
+	public static WMNode getNode(String filePath, ZipInputStream zis) throws ParserConfigurationException, SAXException, IOException, XPathExpressionException  {
 		
 		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 //        factory.setNamespaceAware(false); // never forget this!
         DocumentBuilder builder = factory.newDocumentBuilder();
-        Document doc = builder.parse(new File(filePath));
-        
+        String xml=Util.zipInputStreamToString(zis);
+        Document doc = builder.parse(new ByteArrayInputStream(xml.getBytes()));
 		XPath xpath = XPathFactory.newInstance().newXPath();
 		
         XPathExpression expr;

@@ -16,6 +16,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
 
 import com.boomi.webmethods.flow.Flow;
+import com.boomi.webmethods.util.Util;
 
 public abstract class WMNode {
 	private String pkg;
@@ -28,7 +29,7 @@ public abstract class WMNode {
 	public WMNode(Document doc, String filePath) 
 	{
 		this.filePath=filePath;
-		nodeXML = Flow.readFile(filePath);
+		nodeXML = Util.docToString(doc);
         try {	
         	this.doc = doc;
         	this.filePath = filePath;
@@ -38,7 +39,7 @@ public abstract class WMNode {
             XPathExpression expr;
            
             //Subtype
-            expr = xpath.compile("/Values/value[@name = 'svc_subtype']/text()");
+            expr = xpath.compile("/Values/value[@name = 'svc_subtype' or @name = 'node_subtype']/text()");
             nodes = (NodeList)expr.evaluate(doc, XPathConstants.NODESET);
             if (nodes.getLength()>0)
             	subType=nodes.item(0).getNodeValue();

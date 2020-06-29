@@ -8,6 +8,7 @@ import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -23,7 +24,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.UUID;
 import java.util.stream.Stream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
@@ -33,9 +38,13 @@ import org.xml.sax.SAXException;
 import com.boomi.webmethods.flow.Flow;
 import com.boomi.webmethods.node.WMNode;
 import com.boomi.webmethods.node.WMNodeFactory;
+import com.boomi.webmethods.util.Util;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
 
 
-public class wm2xsd {
+
+public class ProjectAnalyzerTest {
 	
 	private static String integrationServerPath;
 	private static FileOutputStream fosDump;
@@ -46,32 +55,38 @@ public class wm2xsd {
 //        myMap.put(1, "one");
 //        myMap.put(2, "two");
 //    }	
-	
-	public static void main(String[] args) throws TransformerException, XPathExpressionException, IOException, SAXException, ParserConfigurationException {
+	@Test
+	void testProjectAnalyzer() throws Exception {
 //		generateXSD("flow.xml", "MAPTARGET");
 //		generateXSD("flow.xml", "MAPSOURCE");
 //		generateDBInsert("db_insert_node.ndf");
-		integrationServerPath = "C:\\wMServiceDesigner\\IntegrationServer\\packages";
-//		fosDump = new FileOutputStream(new File(integrationServerPath+"\\dump.txt"));
-//		dumpCrawl(integrationServerPath);
-//		fosDump.close();
 		
-		ProjectAnalyzer pa = new ProjectAnalyzer(integrationServerPath);
-		pa.writeDictionary();
-		pa.writeDependencyReport();
+		ProjectAnalyzer pa = new ProjectAnalyzer(Util.getResourceAsStream("myPackage.zip", this.getClass()));
+		String dictActual = pa.getDictionaryXML();
+		String dictHTMLActual = pa.getDictionaryHTML();
+		String reportActual = pa.getDependencyReport();
+		assertEquals(reportActual, "");
 
 	}
 	
-	private static void generateXSD(String artifactPath, String elementName) throws TransformerException
+	@Test
+	void testStartCrawlZip() throws Exception
 	{
-        TransformerFactory factory = TransformerFactory.newInstance();
-        String xsl = readFile("webmethods2xsd.xsl");
-        xsl = xsl.replaceFirst("%SOURCE_TARGET%", elementName);
-        Source xslt = new StreamSource(new ByteArrayInputStream(xsl.getBytes()));
-        Transformer transformer = factory.newTransformer(xslt);
-
-        Source text = new StreamSource(new File(artifactPath));
-        transformer.transform(text, new StreamResult(new File(elementName + ".xsd")));
+		fosDump = new FileOutputStream(new File("dump.txt"));
+        ZipInputStream zis = new ZipInputStream(Util.getResourceAsStream("myPackage.zip", this.getClass()));
+        crawlZip("", zis, zis.getNextEntry());		
+        zis.close();
+		fosDump.close();
+	}
+	
+	private static void copyStream(InputStream in, OutputStream out) throws IOException
+	{
+		byte[] buffer = new byte[1024];
+		int len = in.read(buffer);
+		while (len != -1) {
+		    out.write(buffer, 0, len);
+		    len = in.read(buffer);
+		}
 	}
 	
 	private static String readFile(String filePath) 
@@ -88,39 +103,26 @@ public class wm2xsd {
 	    return contentBuilder.toString();
 	}
 	
-	public static void dumpCrawl( String path ) throws XPathExpressionException, IOException {
-
-        File root = new File( path );
-        File[] list = root.listFiles();
-
-        if (list == null) return;
-
-        for ( File f : list ) {
-            if ( f.isDirectory() ) {
-            	if (!f.getName().startsWith("Wm"))
-            		dumpCrawl( f.getAbsolutePath() );
-//                System.out.println( "Dir:" + f.getAbsoluteFile() );
-            }
-            else {
-            	if (f.getName().contentEquals("node.ndf") || f.getName().contentEquals("flow.xml"))
-            	{
-            		fosDump.write(("\r\n"+f.getAbsolutePath().substring(integrationServerPath.length())+"\r\n").getBytes() );
-            		copyStream(new FileInputStream(new File(f.getAbsolutePath())), fosDump);         		
-            	}
-            	if (f.getName().contentEquals("node.ndf"))
-            		dumpIRTNODE(f.getAbsolutePath());
-            }
-        }
-    }
-	
-	private static void copyStream(InputStream in, OutputStream out) throws IOException
+	public static void crawlZip(String path, ZipInputStream zis, ZipEntry entry) throws IOException, XPathExpressionException
 	{
-		byte[] buffer = new byte[1024];
-		int len = in.read(buffer);
-		while (len != -1) {
-		    out.write(buffer, 0, len);
-		    len = in.read(buffer);
-		}
+        while(entry != null) {
+        	String filePath = path+"/"+entry.getName();
+//            System.out.println(entry.getName());
+            if (entry.isDirectory()) {
+                crawlZip(filePath, zis, zis.getNextEntry());
+            } else {             
+	           	if (entry.getName().contentEquals("node.ndf") || entry.getName().contentEquals("flow.xml"))
+	           	{
+	           		fosDump.write(("\r\n"+filePath.substring(integrationServerPath.length())+"\r\n").getBytes() );
+//	           		copyStream(new FileInputStream(new File(f.getAbsolutePath())), fosDump);         		
+	           	}
+	           	if (entry.getName().contentEquals("node.ndf"))
+	           		dumpIRTNODE(filePath);
+            }
+       
+            zis.closeEntry();
+            entry = zis.getNextEntry();
+        }
 	}
 	
 	private static String getIRTNode(String path) throws XPathExpressionException, IOException
@@ -158,17 +160,6 @@ public class wm2xsd {
 					sb.append(props.charAt(i));
 			}
 			fosDump.write(sb.toString().getBytes());		}
-	}
-	
-	private static void generateDBInsert(String artifactPath) throws TransformerException, XPathExpressionException, IOException
-	{
-        TransformerFactory factory = TransformerFactory.newInstance();
-        String xsl = readFile("webmethods2db_insert.xsl");
-        Source xslt = new StreamSource(new ByteArrayInputStream(xsl.getBytes()));
-        Transformer transformer = factory.newTransformer(xslt);
-
-        Source text = new StreamSource(new File(artifactPath));
-        transformer.transform(text, new StreamResult(new File("dbinsert.xml")));
 	}
 
 	//TODO this is a KLUDGE to get name/value pairs from this binary/UTF_16 character string
