@@ -2,10 +2,14 @@ package com.boomi.webmethods.node;
 
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
@@ -15,7 +19,6 @@ import javax.xml.xpath.XPathFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
 
-import com.boomi.webmethods.flow.Flow;
 import com.boomi.webmethods.util.Util;
 
 public abstract class WMNode {
@@ -24,6 +27,7 @@ public abstract class WMNode {
 	private String base64Properties;
 	private Document doc;
 	private String filePath;
+	private String fileName;
 	private String nodeXML;
 	private String subType="";
 	public WMNode(Document doc, String filePath) 
@@ -33,6 +37,12 @@ public abstract class WMNode {
         try {	
         	this.doc = doc;
         	this.filePath = filePath;
+        	//TODO we have to derive from file path for services...kludge but can't find it elsewhere
+        	char pathDelimiter = '/';//TODO only for windows file system, not linux
+        	if (filePath.indexOf(pathDelimiter)==-1)
+        		pathDelimiter='\\';
+        	//node.ndf for flow.xml
+        	this.fileName=filePath.substring(filePath.lastIndexOf(pathDelimiter)+1);
     		XPath xpath = XPathFactory.newInstance().newXPath();
     		NodeList nodes;
     		
@@ -50,21 +60,21 @@ public abstract class WMNode {
             if (nodes.getLength()>0)
             	nsName=nodes.item(0).getNodeValue();
             else {
-                expr = xpath.compile("/Values/records/value[@name = 'node_nsName']/text()");
+                expr = xpath.compile("/Values/record/value[@name = 'node_nsName']/text()");
                 nodes = (NodeList)expr.evaluate(doc, XPathConstants.NODESET);
                 if (nodes.getLength()>0)
                 	nsName=nodes.item(0).getNodeValue();            	
                 else {
-                	//TODO we have to derive from file path for services...kludge but can't find it elsewhere
-                	char pathDelimiter = '/';//TODO only for windows file system, not linux
-                	if (filePath.indexOf(pathDelimiter)==-1)
-                		pathDelimiter='\\';
                 	int pos = filePath.lastIndexOf(pathDelimiter+"ns"+pathDelimiter); 
                 	if (pos>=0)
-                	{
                 		pos+=4;//length of /ns/
+                	else if (filePath.startsWith("ns"+pathDelimiter))
+                		pos=3;
+                	
+                	if (pos>=0)
+                	{
                 		nsName=filePath.substring(pos);
-                		nsName=nsName.substring(0, nsName.indexOf(pathDelimiter+"node.ndf"));
+                		nsName=nsName.substring(0, nsName.indexOf(pathDelimiter+fileName));
                 		nsName=nsName.replace(pathDelimiter, '.');
                 		pos=nsName.lastIndexOf(".");
                 		nsName=nsName.substring(0,pos)+":"+nsName.substring(pos+1);
@@ -78,19 +88,18 @@ public abstract class WMNode {
             if (nodes.getLength()>0)
             	pkg=nodes.item(0).getNodeValue();
             else {
-                expr = xpath.compile("/Values/records/value[@name = 'node_pkg']/text()");
+                expr = xpath.compile("/Values/record/value[@name = 'node_pkg']/text()");
                 nodes = (NodeList)expr.evaluate(doc, XPathConstants.NODESET);
                 if (nodes.getLength()>0)
                 	pkg=nodes.item(0).getNodeValue();            	
                 else {
-                	//TODO we have to derive from file path for services...kludge but can't find it elsewhere
-                	char pathDelimiter = '/';//TODO only for windows file system, not linux
-                	if (filePath.indexOf(pathDelimiter)==-1)
-                		pathDelimiter='\\';
                 	int pos = filePath.lastIndexOf(pathDelimiter+"ns"+pathDelimiter); 
                 	if (pos>=0)
-                	{
                 		pos+=4;//length of /ns/
+                	else if (filePath.startsWith("ns"+pathDelimiter))
+                		pos=3;
+                	if (pos>=0)
+                	{
                 		pkg=filePath.substring(pos);
                 		pkg=pkg.substring(0, pkg.indexOf(pathDelimiter));
                 	}
@@ -192,12 +201,61 @@ public abstract class WMNode {
 	public Document getDocument() {
 		return doc;
 	}
+	public String getNodeXML() {
+		return nodeXML;
+	}
 	private String getBase64Properties() {
 		return base64Properties;
 	}
+	
 	public List<String> getDependencies()
 	{
-		return Flow.getDependenciesFromNodeXML(this.getFullName(), nodeXML, pkg, null);
+		return getDependenciesFromNodeXML(this.getFullName(), nodeXML, pkg, null);
+	}
+	
+	public List<String> getInternalServiceDependencies() {
+		return new ArrayList<String>();
+	}
+	public List<String> getExternalServiceDependencies()
+	{
+		return new ArrayList<String>();
+	}
+
+	//TODO this is an ugly way to get dependencies
+	public static List<String> getDependenciesFromNodeXML(String fullName, String nodeXML, String pkg, List<String> excludes)
+	{
+		Set<String> deps = new TreeSet<String>();
+		String target = pkg+".";
+		int pos=nodeXML.indexOf(target);
+		while (pos>0)
+		{
+			int quotePos = nodeXML.indexOf('"', pos);
+			int slashPos = nodeXML.indexOf('/', pos);
+			int ltPos = nodeXML.indexOf('<', pos);
+			int qPos = nodeXML.indexOf('?', pos);
+			int end=quotePos;
+			if (slashPos<end && slashPos>pos)
+				end=slashPos;
+			if (ltPos<end && ltPos>pos)
+				end=ltPos;
+			if (qPos<end && qPos>pos)
+				end=qPos;
+			if (end>pos)
+			{
+				String dep=nodeXML.substring(pos,end);
+				//only add non-services
+				if (excludes==null || !excludes.contains(dep))
+					if (!dep.contentEquals(fullName)) //Don't reference yourself
+						deps.add(dep);
+				pos=nodeXML.indexOf(target, end);
+			}
+			else pos=-1;
+		}
+		List<String> list = new ArrayList<String>();
+		Iterator<String> itr = deps.iterator();
+		while (itr.hasNext())
+			list.add(itr.next());
+		return list;
 	}
 	public Map<String,String> getProperties()
 	{

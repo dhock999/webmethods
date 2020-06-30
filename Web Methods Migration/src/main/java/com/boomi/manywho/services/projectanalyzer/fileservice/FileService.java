@@ -54,8 +54,7 @@ public class FileService implements FileHandler<ApplicationConfiguration> {
     		dictHTML = projectAnalyzer.getDictionaryHTML();
     		reportHTML = projectAnalyzer.getDependencyReport();
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			throw new RuntimeException(e);
 		}
 
     	FileResponse file = new FileResponse(

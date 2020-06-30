@@ -24,7 +24,6 @@ public class WMNodeFactory {
 	public static WMNode getNode(String filePath, ZipInputStream zis) throws ParserConfigurationException, SAXException, IOException, XPathExpressionException  {
 		
 		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-//        factory.setNamespaceAware(false); // never forget this!
         DocumentBuilder builder = factory.newDocumentBuilder();
         String xml=Util.zipInputStreamToString(zis);
         Document doc = builder.parse(new ByteArrayInputStream(xml.getBytes()));
@@ -37,20 +36,26 @@ public class WMNodeFactory {
         nodes = (NodeList)expr.evaluate(doc, XPathConstants.NODESET);
         
 		String type = "";
-        if (nodes.getLength()>0)
-        	type=nodes.item(0).getNodeValue();
-        else {
-            expr = xpath.compile("/Values/value[@name = 'node_type']/text()");
-            nodes = (NodeList)expr.evaluate(doc, XPathConstants.NODESET);
-            if (nodes.getLength()>0)
-            	type=nodes.item(0).getNodeValue();
-            else {
-                expr = xpath.compile("/Values/record/value[@name = 'node_type']/text()");
-                nodes = (NodeList)expr.evaluate(doc, XPathConstants.NODESET);
-                if (nodes.getLength()>0)
-                	type=nodes.item(0).getNodeValue();            	
-            }
-        }
+		if (filePath.endsWith("/flow.xml"))
+		{
+			type = Flow.TYPE;
+		} else {
+	        if (nodes.getLength()>0)
+	        	type=nodes.item(0).getNodeValue();
+	        else {
+	            expr = xpath.compile("/Values/value[@name = 'node_type']/text()");
+	            nodes = (NodeList)expr.evaluate(doc, XPathConstants.NODESET);
+	            if (nodes.getLength()>0)
+	            	type=nodes.item(0).getNodeValue();
+	            else {
+	                expr = xpath.compile("/Values/record/value[@name = 'node_type']/text()");
+	                nodes = (NodeList)expr.evaluate(doc, XPathConstants.NODESET);
+	                if (nodes.getLength()>0)
+	                	type=nodes.item(0).getNodeValue();            	
+	            }
+	        }
+			
+		}
         if (type!=null)
 		switch (type)
 		{
@@ -66,12 +71,14 @@ public class WMNodeFactory {
 			return new FlatFileSchema(doc, filePath);
 		case DocumentPartHolder.TYPE:
 			return new DocumentPartHolder(doc, filePath);
+		case Flow.TYPE:
+			return new Flow(doc, filePath);
 		case ConnectionData.TYPE:
 			return new ConnectionData(doc, filePath);
 		case AdapterService.TYPE:
 			return new AdapterService(doc, filePath);
-		case FlowService.TYPE:
-			return new FlowService(doc, filePath);
+		case FlowNode.TYPE:
+			return new FlowNode(doc, filePath);
 		case JavaService.TYPE:
 			return new JavaService(doc, filePath);
 		}				

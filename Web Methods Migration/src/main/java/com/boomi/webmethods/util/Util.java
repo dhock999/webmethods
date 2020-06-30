@@ -2,8 +2,13 @@ package com.boomi.webmethods.util;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Scanner;
+import java.util.stream.Stream;
 import java.util.zip.ZipInputStream;
 
 import javax.xml.transform.OutputKeys;
@@ -82,4 +87,30 @@ public class Util {
 	        throw new RuntimeException("Error converting to String", ex);
 	    }
 	}
+	
+	public static String readFile(String filePath) 
+	{
+	    StringBuilder contentBuilder = new StringBuilder();
+	    try (Stream<String> stream = Files.lines( Paths.get(filePath), StandardCharsets.ISO_8859_1)) 
+	    {
+	        stream.forEach(s -> contentBuilder.append(s).append("\n"));
+	    }
+	    catch (IOException e) 
+	    {
+	        e.printStackTrace();
+	    }
+	    return contentBuilder.toString();
+	}
+	
+	private static void copyStream(InputStream in, OutputStream out) throws IOException
+	{
+		byte[] buffer = new byte[1024];
+		int len = in.read(buffer);
+		while (len != -1) {
+		    out.write(buffer, 0, len);
+		    len = in.read(buffer);
+		}
+	}
+	
+	
 }

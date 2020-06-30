@@ -1,45 +1,30 @@
 package com.boomi.webmethods;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.*;
-import javax.xml.transform.stream.StreamResult;
-import javax.xml.transform.stream.StreamSource;
-
-import java.io.BufferedWriter;
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Base64;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
-import java.util.UUID;
-import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-
 import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
-
-import com.boomi.webmethods.flow.Flow;
-import com.boomi.webmethods.node.WMNode;
-import com.boomi.webmethods.node.WMNodeFactory;
+import org.xmlunit.builder.DiffBuilder;
+import org.xmlunit.diff.DefaultNodeMatcher;
+import org.xmlunit.diff.Diff;
+import org.xmlunit.diff.Difference;
+import org.xmlunit.diff.ElementSelectors;
 import com.boomi.webmethods.util.Util;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 
@@ -48,7 +33,12 @@ public class ProjectAnalyzerTest {
 	
 	private static String integrationServerPath;
 	private static FileOutputStream fosDump;
-	
+	ProjectAnalyzer pa;
+    @BeforeEach
+    void init() throws Exception {
+    	pa = new ProjectAnalyzer(Util.getResourceAsStream("resources/myPackage.zip", this.getClass()));
+    }
+
 	
 //    private static final Map<Integer, String> myMap = new HashMap<>();
 //    static {
@@ -56,51 +46,35 @@ public class ProjectAnalyzerTest {
 //        myMap.put(2, "two");
 //    }	
 	@Test
-	void testProjectAnalyzer() throws Exception {
+	void testGetDictionaryXML() throws Exception {
 //		generateXSD("flow.xml", "MAPTARGET");
 //		generateXSD("flow.xml", "MAPSOURCE");
 //		generateDBInsert("db_insert_node.ndf");
 		
-		ProjectAnalyzer pa = new ProjectAnalyzer(Util.getResourceAsStream("myPackage.zip", this.getClass()));
-		String dictActual = pa.getDictionaryXML();
-		String dictHTMLActual = pa.getDictionaryHTML();
-		String reportActual = pa.getDependencyReport();
-		assertEquals(reportActual, "");
-
+		String actual = pa.getDictionaryXML();
+		compareXML(actual, "getDictionaryXML", this.getClass(), false);
 	}
-	
+
+	@Test
+	void testGetDictionaryHTML() throws Exception {
+		String actual = pa.getDictionaryHTML();
+		compareXML(actual, "getDictionaryHTML", this.getClass(), false);
+	}
+
+	@Test
+	void testGetDependencyReport() throws Exception {
+		String actual = pa.getDependencyReport();
+		compareXML(actual, "getDependencyReport", this.getClass(), false);
+	}
+
 	@Test
 	void testStartCrawlZip() throws Exception
 	{
 		fosDump = new FileOutputStream(new File("dump.txt"));
-        ZipInputStream zis = new ZipInputStream(Util.getResourceAsStream("myPackage.zip", this.getClass()));
+        ZipInputStream zis = new ZipInputStream(Util.getResourceAsStream("resources/myPackage.zip", this.getClass()));
         crawlZip("", zis, zis.getNextEntry());		
         zis.close();
 		fosDump.close();
-	}
-	
-	private static void copyStream(InputStream in, OutputStream out) throws IOException
-	{
-		byte[] buffer = new byte[1024];
-		int len = in.read(buffer);
-		while (len != -1) {
-		    out.write(buffer, 0, len);
-		    len = in.read(buffer);
-		}
-	}
-	
-	private static String readFile(String filePath) 
-	{
-	    StringBuilder contentBuilder = new StringBuilder();
-	    try (Stream<String> stream = Files.lines( Paths.get(filePath), StandardCharsets.ISO_8859_1)) 
-	    {
-	        stream.forEach(s -> contentBuilder.append(s).append("\n"));
-	    }
-	    catch (IOException e) 
-	    {
-	        e.printStackTrace();
-	    }
-	    return contentBuilder.toString();
 	}
 	
 	public static void crawlZip(String path, ZipInputStream zis, ZipEntry entry) throws IOException, XPathExpressionException
@@ -188,5 +162,40 @@ public class ProjectAnalyzerTest {
 		if (start>=src.length())
 			start=-1;
 		return start;
+	}
+	
+	public static void compareXML(String actual, String testName, Class theClass, boolean writeExpected) throws Exception
+	{
+        System.out.println("");
+        System.out.println(testName);
+		if (writeExpected)
+		{
+			FileWriter writer = new FileWriter("src/test/java/resources/expected/"+testName+".xml");
+			writer.write(actual);
+			writer.flush();
+			writer.close();
+		}
+        String expected = Util.readResource("resources/expected/"+testName+".xml", theClass);
+        System.out.println(expected);       
+        System.out.println(actual);       
+
+	
+       Diff myDiffSimilar;
+       myDiffSimilar = DiffBuilder.compare(expected).withTest(actual)
+	     .withNodeMatcher(new DefaultNodeMatcher(ElementSelectors.byName))
+	     .checkForSimilar().ignoreWhitespace()
+	     .build();
+       	System.out.println("actual: " + actual.length() + " expected: " + expected.length());
+        System.out.println(myDiffSimilar.toString());
+        for (Difference dif: myDiffSimilar.getDifferences())
+        {
+            System.out.println("DIFFERENCE");
+            System.out.println(dif.toString());
+        }
+
+        assertTrue(!myDiffSimilar.hasDifferences());
+        System.out.println(myDiffSimilar.toString());
+        assertTrue(!myDiffSimilar.hasDifferences());
+        assertEquals(actual.length(), expected.length());
 	}
 }

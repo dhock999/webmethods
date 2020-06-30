@@ -14,6 +14,8 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
 import javax.xml.xpath.XPathExpressionException;
+import com.boomi.webmethods.util.Util;
+
 
 import org.w3c.dom.Document;
 
@@ -93,11 +95,11 @@ public class AdapterService extends WMNode {
 	private static void generateDBInsert(String artifactPath) throws TransformerException, XPathExpressionException, IOException
 	{
         TransformerFactory factory = TransformerFactory.newInstance();
-        String xsl=null;// = readFile("webmethods2db_insert.xsl");
+        String xsl = Util.readFile("resources/webmethods2db_insert.xsl");
         Source xslt = new StreamSource(new ByteArrayInputStream(xsl.getBytes()));
         Transformer transformer = factory.newTransformer(xslt);
 
         Source text = new StreamSource(new File(artifactPath));
-        transformer.transform(text, new StreamResult(new File("dbinsert.xml")));
+        transformer.transform(text, new StreamResult(new File("resources/dbinsert.xml")));
 	}
 }
